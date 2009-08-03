@@ -1,5 +1,27 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 
+/* Cherokee Benchmark
+ *
+ * Authors:
+ *      Alvaro Lopez Ortega <alvaro@alobbs.com>
+ *
+ * Copyright (C) 2001-2009 Alvaro Lopez Ortega
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of version 2 of the GNU General Public
+ * License as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */ 
+
 #include <unistd.h>
 #include <time.h>
 
@@ -18,6 +40,16 @@
 #define REQUEST_NUM_DEFAULT 10000
 #define KEEPALIVE_DEFAULT   0
 #define RESPONSES_COUNT_LEN 10
+
+#define APP_VERSION  "0.1"
+#define APP_NAME     "Cherokee Benchmark"
+
+#define APP_COPY_NOTICE \
+	"Written by Alvaro Lopez Ortega <alvaro@alobbs.com>\n\n"		       \
+	"Copyright (C) 2009 Alvaro Lopez Ortega.\n"		                       \
+	"This is free software; see the source for copying conditions.  There is NO\n" \
+	"warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
+
 
 #define ALLOCATE(v,t)				\
 	v = (t *) malloc(sizeof(t));		\
@@ -266,6 +298,15 @@ thread_launch (cherokee_list_t *threads, int num)
 static void
 print_help (void)
 {
+	printf (APP_NAME "\n"
+		"Usage: cherokee-benchmark [options] <URL> [<URL>]\n\n"
+		"  -h              Print this help\n"
+		"  -V              Print version and exit\n"make
+		"  -v              Verbose\n"
+		"  -k              Use keep-alive connections\n"
+		"  -c <NUM>        Concurrency level\n"
+		"  -n <NUM>        Stop after no less than <NUM> requests\n\n"
+		"Report bugs to http://bugs.cherokee-project.com/\n");
 }
 
 static ret_t
@@ -273,7 +314,7 @@ process_parameters (int argc, char **argv)
 {
 	int c;
 
-	while ((c = getopt(argc, argv, "hvkc:n:")) != -1) {
+	while ((c = getopt(argc, argv, "hvkVc:n:")) != -1) {
 		switch(c) {
 		case 'k':
 			keepalive = 1;
@@ -287,6 +328,9 @@ process_parameters (int argc, char **argv)
 		case 'n':
 			request_num = atol(optarg);
 			break;
+		case 'V':
+			printf (APP_NAME " " APP_VERSION "\n" APP_COPY_NOTICE);
+			exit (EXIT_OK);
 		case 'h':
 		case '?':
 		default:

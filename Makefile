@@ -13,13 +13,13 @@ $(LIBS) \
 OBJS=\
 main.o
 
-all: bench
+all: cherokee-benchmark
 
-bench: $(OBJS)
+cherokee-benchmark: $(OBJS)
 	$(CC) -o $@ $< $(LIBS_ALL)
 
 clean:
-	$(RM) bench $(OBJS)
+	$(RM) cherokee-benchmark $(OBJS)
 
 .c.o:
 	$(CC) -c $(CFLAGS_ALL) $<
