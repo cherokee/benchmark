@@ -131,9 +131,9 @@ print_error_codes (void)
 			printf ("\n");
 			return;
 		}
-		printf ("  HTTP %d: %d (%.2f%%) ", 
-			responses[i].http_code, responses[i].count,
-			(responses[i].count / (float)request_done) * 100);
+		printf ("  HTTP %d: %lu (%.2f%%) ", 
+			(int)responses[i].http_code, responses[i].count,
+			((responses[i].count / (float)request_done) * 100.0f));
 	}
 }
 
@@ -182,6 +182,9 @@ cb_write_data (void *ptr, size_t size, size_t nmemb, void *stream)
 {
 	long total;
 
+	UNUSED(ptr);
+	UNUSED(stream);
+
 	total = (size * nmemb);
 	tx_total += total;
 	return total;
@@ -191,6 +194,9 @@ static size_t
 cb_got_header (void *ptr, size_t size, size_t nmemb, void *stream)
 {
 	long total;
+
+	UNUSED(ptr);
+	UNUSED(stream);
 
 	total = (size * nmemb);
 	return total;
@@ -301,7 +307,7 @@ print_help (void)
 	printf (APP_NAME "\n"
 		"Usage: cherokee-benchmark [options] <URL> [<URL>]\n\n"
 		"  -h              Print this help\n"
-		"  -V              Print version and exit\n"make
+		"  -V              Print version and exit\n"
 		"  -v              Verbose\n"
 		"  -k              Use keep-alive connections\n"
 		"  -c <NUM>        Concurrency level\n"
