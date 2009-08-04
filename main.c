@@ -40,6 +40,7 @@
 #define REQUEST_NUM_DEFAULT 10000
 #define KEEPALIVE_DEFAULT   0
 #define RESPONSES_COUNT_LEN 10
+#define CONNECTION_TIMEOUT  30
 
 #define APP_VERSION  "0.1"
 #define APP_NAME     "Cherokee Benchmark"
@@ -110,19 +111,22 @@ print_update (void)
 	int         reqs_sec = 0;
 	int         tx_sec   = 0;
 
-	if ((request_done == 0) &&
-	    (request_fails == 0)) {
-		return;
-	}
-
 	time_now = get_time_msecs();
 	elapse = time_now - time_start;
+
+	if ((elapse == 0) ||
+	    ((request_done == 0) && (request_fails == 0)))
+	{
+		return;
+	}
 
 	reqs_sec = (int)(request_done / (elapse/1000.0f));
 	tx_sec   = (int)(tx_total     / (elapse/1000.0f));
 
-	printf ("threads %d, reqs %lu (%d reqs/s avg), TX %llu (%d bytes/s avg), fails %lu, %.2f secs\n",
-		thread_num, request_done, reqs_sec, tx_total, tx_sec, request_fails, elapse/1000.0f);
+	printf ("threads %d, reqs %li (%d reqs/s avg), TX %llu (%d bytes/s avg), fails %li, %.2f secs\n",
+		thread_num, request_done, reqs_sec,
+		(long long unsigned) tx_total, tx_sec,
+		request_fails, elapse/1000.0f);
 }
 
 static void
@@ -142,18 +146,6 @@ print_error_codes (void)
 	}
 }
 
-static void
-report_fatal_error (const char *str)
-{
-	fprintf (stderr, "FATAL ERROR: %s\n", str);
-	finished = 1;
-}
-
-static void
-report_error (const char *str)
-{
-	fprintf (stderr, "ERROR: %s\n", str);
-}
 
 static void
 count_response (long http_code)
@@ -179,7 +171,8 @@ count_response (long http_code)
 		}
 	}
 
-	report_fatal_error ("Run out of http_error space");
+	finished = 1;
+	fprintf (stderr, "FATAL ERROR: Run out of http_error space\n");
 }
 
 static size_t
@@ -229,6 +222,8 @@ thread_routine (void *me)
 	}
 
 	while (! finished) {
+		time_msec_t requested_time;
+
 		/* Configure curl, if needed
 		 */
 		if (thread->curl == NULL) {
@@ -237,12 +232,15 @@ thread_routine (void *me)
 			curl_easy_setopt (thread->curl, CURLOPT_WRITEFUNCTION,  cb_write_data);
 			curl_easy_setopt (thread->curl, CURLOPT_HEADERFUNCTION, cb_got_header);
 			curl_easy_setopt (thread->curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+			curl_easy_setopt (thread->curl, CURLOPT_CONNECTTIMEOUT, CONNECTION_TIMEOUT);
 		}
 		
 		curl_easy_setopt (thread->curl, CURLOPT_URL, url->url.buf);
 
 		/* Request it
 		 */
+		requested_time = get_time_msecs();
+
 		re = curl_easy_perform (thread->curl);
 		switch (re) {
 		case CURLE_OK:
@@ -251,16 +249,21 @@ thread_routine (void *me)
 			break;
 
 		case CURLE_COULDNT_RESOLVE_HOST:
+			finished = 1;
 			is_error = 1;
 			request_fails++;
-			report_fatal_error (curl_easy_strerror(re));
+
+			fprintf (stderr, "FATAL ERROR: %s\n", curl_easy_strerror(re));
 			break;
 
 		default:
 			is_error = 1;
 			request_fails++;
+
 			if (verbose) {
-				report_error (curl_easy_strerror(re));
+				fprintf (stderr, "ERROR: %s (elapsed %.2fs)\n",
+					 curl_easy_strerror(re), 
+					 ((get_time_msecs() - requested_time)/1000.0f));
 			}
 		}
 
