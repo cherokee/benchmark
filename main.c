@@ -216,8 +216,14 @@ thread_routine (void *me)
 	cb_thread_t *thread     = (cb_thread_t *)me;
 	cb_url_t    *url        = (cb_url_t *)urls.next;
 
+	/* Wait until activated. Then, wait a sec until the rest of
+	 * the its peers are ready as well.
+	 */
+	pthread_mutex_lock (&thread->start_mutex);
 	sleep(1);
 
+	/* The first thread reads the time
+	 */
 	if (time_start == 0) {
 		time_start = get_time_msecs();
 	}
