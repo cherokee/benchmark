@@ -110,6 +110,11 @@ print_update (void)
 	int         reqs_sec = 0;
 	int         tx_sec   = 0;
 
+	if ((request_done == 0) &&
+	    (request_fails == 0)) {
+		return;
+	}
+
 	time_now = get_time_msecs();
 	elapse = time_now - time_start;
 
@@ -207,6 +212,7 @@ thread_routine (void *me)
 {
 	int          re;
 	long         http_code;
+	int          is_error   = 0;
 	cb_thread_t *thread     = (cb_thread_t *)me;
 	cb_url_t    *url        = (cb_url_t *)urls.next;
 
@@ -239,11 +245,13 @@ thread_routine (void *me)
 			break;
 
 		case CURLE_COULDNT_RESOLVE_HOST:
+			is_error = 1;
 			request_fails++;
 			report_fatal_error (curl_easy_strerror(re));
 			break;
 
 		default:
+			is_error = 1;
 			request_fails++;
 			if (verbose) {
 				report_error (curl_easy_strerror(re));
@@ -252,7 +260,7 @@ thread_routine (void *me)
 
 		/* Prepare for the next request
 		 */
-		if (! keepalive) {
+		if ((! keepalive) || (is_error)) {
 			curl_easy_cleanup (thread->curl);
 			thread->curl = NULL;
 		}

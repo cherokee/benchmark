@@ -2,7 +2,8 @@ CFLAGS_ALL=\
 $(CFLAGS) \
 `curl-config --cflags` \
 `cherokee-config --cflags` \
--DCHEROKEE_COMPILATION
+-DCHEROKEE_COMPILATION \
+-D_FILE_OFFSET_BITS=64
 
 LIBS_ALL=\
 $(LIBS) \
