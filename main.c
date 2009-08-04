@@ -40,7 +40,6 @@
 #define REQUEST_NUM_DEFAULT 10000
 #define KEEPALIVE_DEFAULT   0
 #define RESPONSES_COUNT_LEN 10
-#define CONNECTION_TIMEOUT  30
 
 #define APP_VERSION  "0.1"
 #define APP_NAME     "Cherokee Benchmark"
@@ -232,11 +231,10 @@ thread_routine (void *me)
 			curl_easy_setopt (thread->curl, CURLOPT_WRITEFUNCTION,  cb_write_data);
 			curl_easy_setopt (thread->curl, CURLOPT_HEADERFUNCTION, cb_got_header);
 			curl_easy_setopt (thread->curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-			curl_easy_setopt (thread->curl, CURLOPT_CONNECTTIMEOUT, CONNECTION_TIMEOUT);
 		}
 		
 		curl_easy_setopt (thread->curl, CURLOPT_URL, url->url.buf);
-
+			
 		/* Request it
 		 */
 		requested_time = get_time_msecs();
@@ -278,6 +276,22 @@ thread_routine (void *me)
 	}
 
 	return NULL;
+}
+
+static ret_t
+raise_fdlimit (int limit)
+{
+	int           re;
+	struct rlimit rl;
+
+	if (limit < 256)
+		return ret_ok;
+
+	rl.rlim_cur = limit;
+	rl.rlim_max = limit;
+
+	re = setrlimit (RLIMIT_NOFILE, &rl);
+	return (re == 0) ? ret_ok : ret_error;
 }
 
 static ret_t
@@ -385,6 +399,8 @@ main (int argc, char **argv)
 	ret_t           ret;
 	cherokee_list_t threads;
 
+	/* Initialize
+	 */
 	INIT_LIST_HEAD (&threads);
 	INIT_LIST_HEAD (&urls);
 
@@ -393,6 +409,8 @@ main (int argc, char **argv)
 		responses[i].count     = 0;
 	}
 
+	/* Check arguments
+	 */
 	ret = process_parameters (argc, argv);
 	if (ret != ret_ok) {
 		exit (EXIT_ERROR);
@@ -403,13 +421,23 @@ main (int argc, char **argv)
 		exit (EXIT_ERROR);		
 	}
 
+	/* Libraries initialization
+	 */
 	curl_global_init (CURL_GLOBAL_ALL);
+
+	i = (int) (thread_num * 1.2f);
+	ret = raise_fdlimit (i);
+	if (ret != ret_ok) {
+		fprintf (stderr, "WARNING: Couldn't raise fd limit to %d\n", i);
+	}
 
 	ret = thread_launch (&threads, thread_num);
 	if (ret != ret_ok) {
 		exit (EXIT_ERROR);
 	}
 
+	/* Main loop
+	 */
 	sleep(1);
 	while (! finished) {
 		sleep(1);
