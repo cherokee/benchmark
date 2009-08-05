@@ -40,6 +40,7 @@
 #define REQUEST_NUM_DEFAULT 10000
 #define KEEPALIVE_DEFAULT   0
 #define RESPONSES_COUNT_LEN 10
+#define THREAD_STACK_SIZE   80 * 1024
 
 #define APP_VERSION  "0.1"
 #define APP_NAME     "Cherokee Benchmark"
@@ -301,6 +302,7 @@ thread_launch (cherokee_list_t *threads, int num)
 	int              re;
 	cb_thread_t     *thread;
 	cherokee_list_t *item;
+	pthread_attr_t   attr;
 
 	/* Create threads
 	 */
@@ -314,7 +316,10 @@ thread_launch (cherokee_list_t *threads, int num)
 		pthread_mutex_init (&thread->start_mutex, NULL);
 		pthread_mutex_lock (&thread->start_mutex);
 
-		re = pthread_create (&thread->pthread, NULL, thread_routine, thread);
+		pthread_attr_init (&attr);
+		pthread_attr_setstacksize (&attr, THREAD_STACK_SIZE);
+
+		re = pthread_create (&thread->pthread, &attr, thread_routine, thread);
 		if (re != 0) {
 			PRINT_ERROR_S ("Couldn't create pthread\n");
 
