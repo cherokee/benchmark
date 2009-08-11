@@ -88,6 +88,8 @@ static int                    thread_num    = THREAD_NUM_DEFAULT;
 static long                   request_num   = REQUEST_NUM_DEFAULT;
 static int                    verbose       = 0;
 static int                    finished      = 0;
+static int                    resp_check    = 1;
+static int                    resp_size     = -1;
 static volatile long          request_done  = 0;
 static volatile long          request_fails = 0;
 static volatile time_msec_t   time_start    = 0;
@@ -147,32 +149,48 @@ print_error_codes (void)
 }
 
 
-static void
-count_response (long http_code)
+static int
+count_response (long http_code, 
+		long downloaded)
 {
 	int i;
-	
-	if (request_done >= request_num) {
-		finished = 1;
-		return;
+
+	/* Check downloaded */
+	if (resp_check) {
+		if (resp_size == -1) {
+			resp_size = downloaded;
+		} else {
+			if ((downloaded < resp_size * 0.90) ||
+			    (downloaded > resp_size * 1.10))
+			{
+				return 1;
+			}
+		}
 	}
 
+	/* Finished? */
+	if (request_done >= request_num) {
+		finished = 1;
+		return 0;
+	}
 	request_done++;
 
+	/* HTTP code */
 	for (i=0; i<RESPONSES_COUNT_LEN; i++) {
 		if (responses[i].http_code == 0) {
 			responses[i].http_code = http_code;
 			responses[i].count     = 1;
-			return;
+			return 0;
 
 		} else if (responses[i].http_code == http_code) {
 			responses[i].count++;
-			return;
+			return 0;
 		}
 	}
 
 	finished = 1;
 	fprintf (stderr, "FATAL ERROR: Run out of http_error space\n");
+	return 1;
 }
 
 static size_t
@@ -205,6 +223,7 @@ thread_routine (void *me)
 {
 	int          re;
 	long         http_code;
+	long         downloaded;
 	int          is_error   = 0;
 	cb_thread_t *thread     = (cb_thread_t *)me;
 	cb_url_t    *url        = (cb_url_t *)urls.next;
@@ -244,7 +263,13 @@ thread_routine (void *me)
 		switch (re) {
 		case CURLE_OK:
 			curl_easy_getinfo (thread->curl, CURLINFO_RESPONSE_CODE, &http_code);
-			count_response (http_code);
+			curl_easy_getinfo (thread->curl, CURLINFO_SIZE_DOWNLOAD, &downloaded);
+
+			re = count_response (http_code, downloaded);
+			if (re != 0) {
+				is_error = 1;
+				request_fails++;
+			}
 			break;
 
 		case CURLE_COULDNT_RESOLVE_HOST:
