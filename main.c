@@ -153,23 +153,7 @@ count_response (int    http_code,
 		double downloaded)
 {
 	int i;
-
-	/* Check downloaded */
-	if (resp_check) {
-		if (resp_size == -1) {
-			resp_size = downloaded;
-		} else {
-			if ((downloaded < resp_size * 0.90) ||
-			    (downloaded > resp_size * 1.10))
-			{
-				return 1;
-			}
-		}
-	}
-
-	if (http_code >= 400) {
-		return 1;
-	}
+	int set = 0;
 
 	/* Finished? */
 	if (request_done >= request_num) {
@@ -182,18 +166,41 @@ count_response (int    http_code,
 	for (i=0; i<RESPONSES_COUNT_LEN; i++) {
 		if (responses[i].http_code == http_code) {
 			responses[i].count++;
-			return 0;
+			set = 1;
+			break;
 
 		} else if (responses[i].http_code == 0) {
 			responses[i].http_code = http_code;
 			responses[i].count     = 1;
-			return 0;
+			set = 1;
+			break;
 		}
 	}
 
-	finished = 1;
-	fprintf (stderr, "FATAL ERROR: Run out of http_error space\n");
-	return 1;
+	if (! set) {
+		finished = 1;
+		fprintf (stderr, "FATAL ERROR: Run out of http_error space\n");
+	}
+
+	/* Was it an error? */
+	if (http_code >= 400) {
+		return 1;
+	}
+
+	/* Check downloaded */
+	if (resp_check) {	
+		if (resp_size == -1) {
+			resp_size = downloaded;
+		} else {
+			if ((downloaded < resp_size * 0.90) ||
+			    (downloaded > resp_size * 1.10))
+			{
+				return 1;
+			}
+		}
+	}
+
+	return 0;
 }
 
 static size_t
