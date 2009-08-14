@@ -73,7 +73,7 @@ typedef struct {
 #define URL(u) ((cb_url_t *)(u))
 
 typedef struct {
-	long http_code;
+	int  http_code;
 	long count;
 } cb_response_t;
 
@@ -139,19 +139,18 @@ print_error_codes (void)
 	printf ("\nHTTP responses:\n");
 	for (i=0; i<RESPONSES_COUNT_LEN; i++) {
 		if (responses[i].http_code == 0) {
-			printf ("\n");
 			return;
 		}
-		printf ("  HTTP %d: %lu (%.2f%%) ", 
-			(int)responses[i].http_code, responses[i].count,
+		printf ("  HTTP %d: %lu (%.2f%%)\n", 
+			responses[i].http_code, responses[i].count,
 			((responses[i].count / (float)request_done) * 100.0f));
 	}
 }
 
 
 static int
-count_response (long http_code, 
-		long downloaded)
+count_response (int    http_code, 
+		double downloaded)
 {
 	int i;
 
@@ -168,6 +167,10 @@ count_response (long http_code,
 		}
 	}
 
+	if (http_code >= 400) {
+		return 1;
+	}
+
 	/* Finished? */
 	if (request_done >= request_num) {
 		finished = 1;
@@ -177,13 +180,13 @@ count_response (long http_code,
 
 	/* HTTP code */
 	for (i=0; i<RESPONSES_COUNT_LEN; i++) {
-		if (responses[i].http_code == 0) {
-			responses[i].http_code = http_code;
-			responses[i].count     = 1;
+		if (responses[i].http_code == http_code) {
+			responses[i].count++;
 			return 0;
 
-		} else if (responses[i].http_code == http_code) {
-			responses[i].count++;
+		} else if (responses[i].http_code == 0) {
+			responses[i].http_code = http_code;
+			responses[i].count     = 1;
 			return 0;
 		}
 	}
@@ -223,7 +226,8 @@ thread_routine (void *me)
 {
 	int          re;
 	long         http_code;
-	long         downloaded;
+	double       downloaded;
+	CURLcode     error;
 	int          is_error   = 0;
 	cb_thread_t *thread     = (cb_thread_t *)me;
 	cb_url_t    *url        = (cb_url_t *)urls.next;
@@ -251,6 +255,9 @@ thread_routine (void *me)
 			curl_easy_setopt (thread->curl, CURLOPT_WRITEFUNCTION,  cb_write_data);
 			curl_easy_setopt (thread->curl, CURLOPT_HEADERFUNCTION, cb_got_header);
 			curl_easy_setopt (thread->curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+# if 0
+			curl_easy_setopt (thread->curl, CURLOPT_VERBOSE, 1);
+#endif
 		}
 		
 		curl_easy_setopt (thread->curl, CURLOPT_URL, url->url.buf);
@@ -259,9 +266,12 @@ thread_routine (void *me)
 		 */
 		requested_time = get_time_msecs();
 
-		re = curl_easy_perform (thread->curl);
-		switch (re) {
+		error = curl_easy_perform (thread->curl);
+		switch (error) {
 		case CURLE_OK:
+			http_code  = 0;
+			downloaded = 0;
+
 			curl_easy_getinfo (thread->curl, CURLINFO_RESPONSE_CODE, &http_code);
 			curl_easy_getinfo (thread->curl, CURLINFO_SIZE_DOWNLOAD, &downloaded);
 
