@@ -24,6 +24,7 @@
 
 #include <unistd.h>
 #include <time.h>
+#include <sys/resource.h>
 
 #include <pthread.h>
 
